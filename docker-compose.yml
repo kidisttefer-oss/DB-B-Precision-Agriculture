@@ -1,0 +1,79 @@
+version: "3.8"
+
+services:
+
+  # ---- Infrastructure ----
+
+  mosquitto:
+    image: eclipse-mosquitto
+    ports:
+      - "1883:1883"
+    volumes:
+      - ./mosquitto.conf:/mosquitto/config/mosquitto.conf
+
+  mysql:
+    image: mysql:8
+    environment:
+      MYSQL_ROOT_PASSWORD: camposense
+      MYSQL_DATABASE: camposense
+    ports:
+      - "3306:3306"
+    volumes:
+      - ./sql/schema.sql:/docker-entrypoint-initdb.d/schema.sql
+
+  mongodb:
+    image: mongo
+    ports:
+      - "27017:27017"
+
+  neo4j:
+    image: neo4j:5
+    environment:
+      NEO4J_AUTH: neo4j/camposense123
+    ports:
+      - "7474:7474"
+      - "7687:7687"
+
+  # ---- Application services ----
+  # A short "sleep" gives MySQL/Neo4j time to finish starting up before the
+  # app tries to connect. If a service still fails on first boot, Docker
+  # will restart it automatically (restart: on-failure).
+
+  simulator:
+    build: .
+    command: sh -c "sleep 20 && python simulator/sensor_simulator.py"
+    environment:
+      MQTT_BROKER: mosquitto
+    depends_on:
+      - mosquitto
+    restart: on-failure
+
+  subscriber:
+    build: .
+    command: sh -c "sleep 15 && python subscriber/subscriber.py"
+    environment:
+      MQTT_BROKER: mosquitto
+      MYSQL_HOST: mysql
+      MONGO_HOST: mongodb
+      NEO4J_URI: bolt://neo4j:7687
+    depends_on:
+      - mosquitto
+      - mysql
+      - mongodb
+      - neo4j
+    restart: on-failure
+
+  api:
+    build: .
+    command: sh -c "sleep 15 && python api/server.py"
+    environment:
+      MYSQL_HOST: mysql
+      MONGO_HOST: mongodb
+      NEO4J_URI: bolt://neo4j:7687
+    ports:
+      - "5000:5000"
+    depends_on:
+      - mysql
+      - mongodb
+      - neo4j
+    restart: on-failure

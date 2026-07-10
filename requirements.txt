@@ -1,0 +1,6 @@
+paho-mqtt==1.6.1
+mysql-connector-python
+pymongo
+neo4j
+flask
+flask-cors
