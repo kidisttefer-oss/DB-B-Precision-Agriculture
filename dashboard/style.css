@@ -1,0 +1,212 @@
+/* CampoSense - field notebook look: paper, leaf green, lemon yellow */
+
+:root {
+  --paper: #fbfaf4;
+  --ink: #22331f;
+  --leaf: #2f5d3a;
+  --lemon: #e8c33f;
+  --soil: #a3906f;
+  --line: #d8d4c2;
+  --water: #3d6b8e;
+  --heat: #a04424;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: Georgia, "Times New Roman", serif;
+  padding: 24px;
+}
+
+header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  border-bottom: 3px double var(--leaf);
+  padding-bottom: 12px;
+  margin-bottom: 20px;
+}
+
+h1 {
+  color: var(--leaf);
+  font-size: 2rem;
+  letter-spacing: 1px;
+}
+
+.subtitle {
+  color: var(--soil);
+  font-style: italic;
+  margin-top: 4px;
+}
+
+/* small pulsing "live" indicator */
+.live-dot {
+  font-family: "Courier New", monospace;
+  font-size: 0.8rem;
+  color: var(--leaf);
+}
+.live-dot::before {
+  content: "";
+  display: inline-block;
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--leaf);
+  margin-right: 6px;
+  animation: pulse 2s infinite;
+}
+@keyframes pulse { 50% { opacity: 0.25; } }
+@media (prefers-reduced-motion: reduce) { .live-dot::before { animation: none; } }
+
+/* summary strip */
+.summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.stat {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--lemon);
+  padding: 10px 14px;
+}
+
+.stat span {
+  font-family: "Courier New", monospace;
+  font-size: 1.6rem;
+  color: var(--leaf);
+  display: block;
+}
+
+.stat label { font-size: 0.78rem; color: var(--soil); }
+.stat label em { font-style: normal; color: var(--ink); opacity: 0.6; }
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+  gap: 20px;
+}
+
+.panel {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-top: 4px solid var(--leaf);
+  padding: 16px;
+}
+
+.panel.wide { grid-column: 1 / -1; }
+
+.panel-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 8px;
+  margin-bottom: 12px;
+}
+
+h2 { font-size: 1.1rem; color: var(--leaf); }
+
+/* small stamp saying which database this panel reads from */
+.db-tag {
+  font-family: "Courier New", monospace;
+  font-size: 0.72rem;
+  padding: 2px 8px;
+  border: 1px solid var(--ink);
+  border-radius: 2px;
+  text-transform: uppercase;
+}
+.db-tag.mysql { background: var(--lemon); }
+.db-tag.mongo { background: #cfe3cf; }
+.db-tag.neo4j { background: #e4d5c3; }
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: "Courier New", monospace;
+  font-size: 0.85rem;
+}
+
+th {
+  text-align: left;
+  color: var(--soil);
+  font-weight: normal;
+  border-bottom: 1px solid var(--line);
+  padding: 4px 6px;
+}
+
+td {
+  padding: 4px 6px;
+  border-bottom: 1px dotted var(--line);
+}
+
+/* moisture below threshold shows red, above shows green */
+td.low { color: var(--heat); font-weight: bold; }
+td.ok  { color: var(--leaf); }
+
+.note {
+  margin-top: 10px;
+  font-size: 0.78rem;
+  font-style: italic;
+  color: var(--soil);
+}
+
+.note code { font-style: normal; background: var(--paper); padding: 0 4px; }
+
+.doc-list {
+  list-style: none;
+  font-family: "Courier New", monospace;
+  font-size: 0.85rem;
+}
+
+.doc-list li {
+  padding: 6px 4px;
+  border-bottom: 1px dotted var(--line);
+}
+
+/* nutrient chips */
+.chip {
+  display: inline-block;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 1px 8px;
+  margin: 1px;
+  font-size: 0.78rem;
+}
+
+/* alert badges */
+.badge {
+  display: inline-block;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  border-radius: 2px;
+  color: #fff;
+  margin-right: 6px;
+}
+.badge.water { background: var(--water); }
+.badge.heat  { background: var(--heat); }
+
+/* topology chains */
+.topology { font-family: "Courier New", monospace; font-size: 0.85rem; }
+
+.chain {
+  padding: 8px 4px;
+  border-bottom: 1px dotted var(--line);
+}
+
+.node {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  padding: 2px 10px;
+  border-radius: 2px;
+}
+.node.field { border-left: 4px solid var(--leaf); }
+.node.zone  { border-left: 4px solid var(--lemon); }
+.node.drip  { border-left: 4px solid var(--water); }
+
+.arrow { color: var(--soil); margin: 0 6px; }

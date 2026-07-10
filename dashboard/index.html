@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CampoSense - Farm Monitor</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <header>
+    <div>
+      <h1>CampoSense</h1>
+      <p class="subtitle">Precision agriculture monitor &mdash; Sicilian farm, 2 fields, 3 crop zones</p>
+    </div>
+    <div class="live-dot" title="polling every 5 seconds">live</div>
+  </header>
+
+  <!-- summary strip: one number per database, so the pipeline is visible at a glance -->
+  <div class="summary">
+    <div class="stat"><span id="stat-readings">&ndash;</span><label>readings stored <em>MySQL</em></label></div>
+    <div class="stat"><span id="stat-moisture">&ndash;</span><label>avg farm moisture % <em>MySQL view</em></label></div>
+    <div class="stat"><span id="stat-alerts">&ndash;</span><label>recent alerts <em>MongoDB</em></label></div>
+    <div class="stat"><span id="stat-zones">&ndash;</span><label>zones in topology <em>Neo4j</em></label></div>
+  </div>
+
+  <main class="grid">
+
+    <section class="panel">
+      <div class="panel-head">
+        <h2>Sensor readings</h2>
+        <span class="db-tag mysql">MySQL</span>
+      </div>
+      <table id="readings-table">
+        <thead>
+          <tr><th>Zone</th><th>Moisture %</th><th>Temp &deg;C</th><th>Light lux</th><th>Time</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <h2>Averages per zone</h2>
+        <span class="db-tag mysql">MySQL view</span>
+      </div>
+      <table id="averages-table">
+        <thead>
+          <tr><th>Zone</th><th>Avg moisture %</th><th>Avg temp &deg;C</th><th>Readings</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+      <p class="note">Computed by the SQL view <code>zone_averages</code>, not in Python.</p>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <h2>Soil nutrients</h2>
+        <span class="db-tag mongo">MongoDB</span>
+      </div>
+      <ul id="nutrients-list" class="doc-list"></ul>
+      <p class="note">Each probe reports a different subset of fields &mdash; schemaless documents.</p>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <h2>Alerts</h2>
+        <span class="db-tag mongo">MongoDB</span>
+      </div>
+      <ul id="alerts-list" class="doc-list"></ul>
+    </section>
+
+    <section class="panel wide">
+      <div class="panel-head">
+        <h2>Farm topology</h2>
+        <span class="db-tag neo4j">Neo4j</span>
+      </div>
+      <div id="topology-chain" class="topology"></div>
+      <p class="note">Graph path: Field &rarr; Zone &rarr; Sensor, Zone &rarr; Irrigation unit.</p>
+    </section>
+
+  </main>
+
+  <script>
+    const API = "http://localhost:5000/api";
+    const MOISTURE_THRESHOLD = 30;
+
+    async function load(path) {
+      const res = await fetch(`${API}/${path}`);
+      return res.json();
+    }
+
+    function moistureCell(value) {
+      const cls = value < MOISTURE_THRESHOLD ? "low" : "ok";
+      return `<td class="${cls}">${value}</td>`;
+    }
+
+    async function refresh() {
+      const readings = await load("readings");
+      document.querySelector("#readings-table tbody").innerHTML = readings.map(r => `
+        <tr>
+          <td>${r.zone_id}</td>
+          ${moistureCell(r.soil_moisture)}
+          <td>${r.temperature}</td>
+          <td>${r.light_lux}</td>
+          <td>${r.recorded_at.replace("T", " ")}</td>
+        </tr>`).join("");
+
+      const averages = await load("averages");
+      document.querySelector("#averages-table tbody").innerHTML = averages.map(a => `
+        <tr>
+          <td>${a.zone_id}</td>
+          <td>${Number(a.avg_soil_moisture).toFixed(1)}</td>
+          <td>${Number(a.avg_temperature).toFixed(1)}</td>
+          <td>${a.reading_count}</td>
+        </tr>`).join("");
+
+      const nutrients = await load("nutrients");
+      document.getElementById("nutrients-list").innerHTML = nutrients.map(n => {
+        const values = Object.entries(n)
+          .filter(([k]) => k.endsWith("_ppm"))
+          .map(([k, v]) => `<span class="chip">${k.replace("_ppm", "")} ${v}</span>`)
+          .join(" ");
+        return `<li><strong>${n.zone_id}</strong> ${values}</li>`;
+      }).join("");
+
+      const alerts = await load("alerts");
+      document.getElementById("alerts-list").innerHTML = alerts.map(a => `
+        <li>
+          <span class="badge ${a.alert_type === "irrigation_needed" ? "water" : "heat"}">
+            ${a.alert_type === "irrigation_needed" ? "irrigation" : "heat"}
+          </span>
+          <strong>${a.zone_id}</strong> &mdash; ${a.value} (threshold ${a.threshold})
+        </li>`).join("");
+
+      const topology = await load("topology");
+      document.getElementById("topology-chain").innerHTML = topology.map(t => `
+        <div class="chain">
+          <span class="node field">${t.field}</span><span class="arrow">&rarr;</span>
+          <span class="node zone">${t.zone_id}</span><span class="arrow">&rarr;</span>
+          <span class="node">${t.sensor_id}</span><span class="arrow">&rarr;</span>
+          <span class="node drip">${t.irrigation_id}</span>
+        </div>`).join("");
+
+      // summary strip
+      const total = averages.reduce((s, a) => s + a.reading_count, 0);
+      const avgMoist = averages.length
+        ? (averages.reduce((s, a) => s + Number(a.avg_soil_moisture), 0) / averages.length).toFixed(1)
+        : "-";
+      document.getElementById("stat-readings").textContent = total;
+      document.getElementById("stat-moisture").textContent = avgMoist;
+      document.getElementById("stat-alerts").textContent = alerts.length;
+      document.getElementById("stat-zones").textContent = topology.length;
+    }
+
+    refresh();
+    setInterval(refresh, 5000);
+  </script>
+
+</body>
+</html>
